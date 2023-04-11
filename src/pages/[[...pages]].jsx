@@ -41,6 +41,7 @@ export async function getStaticPaths() {
 }
 
 export default function Page({ page }) {
+
   const router = useRouter();
   const isPreviewing = useIsPreviewing();
 

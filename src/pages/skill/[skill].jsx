@@ -1,25 +1,67 @@
-import { builder, BuilderComponent } from '@builder.io/react'
+import React from 'react';
+import { useRouter } from 'next/router';
+import { BuilderComponent, builder, useIsPreviewing } from '@builder.io/react';
+import DefaultErrorPage from 'next/error';
+import Head from 'next/head';
 
-builder.init('d7b5ee24982f4bd2bc2198e70d465e8a')
+// Replace with your Public API Key
+builder.init("d7b5ee24982f4bd2bc2198e70d465e8a");
 
-export const getStaticProps = async (context) => {
-  // Dynamically fetch latest content from Builder.io API, so you can publish updates without
-  // codebase changes
-  const content = await builder.get('skill', { url: context.resolvedUrl }).promise();
-  console.log("CONTENT", content)
-  return { props: { content } }
-}
+export async function getStaticProps({ params }) {
+  // Fetch the builder content
+  const page = await builder
+    .get('skill', {
+      userAttributes: {
+        urlPath: '/' + (params?.page?.join('/') || ''),
+      },
+    })
+    .toPromise();
 
-// View full integration options and docs here: https://builder.io/c/docs/developers
-export default function MyCompoennt(props) {
-  return <BuilderComponent
-    content={props.content}
-    model="skill" />
+  return {
+    props: {
+      page: page || null,
+    },
+    revalidate: 5
+  };
 }
 
 export async function getStaticPaths() {
+  // Get a list of all pages in builder
+  const pages = await builder.getAll('skill', {
+    // We only need the URL field
+    fields: 'data.url', 
+    options: { noTargeting: true },
+  });
+
+
   return {
-    paths: [],
+    paths: pages.map(page => `${page.data?.url}`),
     fallback: true,
   };
+}
+
+export default function Page({ page }) {
+
+  console.log("SKILL", page)
+
+  const router = useRouter();
+  const isPreviewing = useIsPreviewing();
+
+  if (router.isFallback) {
+    return <h1>Loading...</h1>
+  }
+
+  if (!page && !isPreviewing) {
+    return <DefaultErrorPage statusCode={404} />
+  }
+
+  return (
+    <>
+      <Head>
+        <title>{page?.data.title}</title>
+      </Head>
+      {/* Render the Builder page */}
+      <BuilderComponent model="skill" content={page} />
+    </>
+  );
 }
